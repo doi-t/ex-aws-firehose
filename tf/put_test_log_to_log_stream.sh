@@ -2,10 +2,16 @@
 
 set -ex
 
-TEST_LOG_MESSAGE=${1:-'Hellow Firehose!'}
 NOW=$(gdate +"%Y-%m-%d %k:%M:%S")
 
-cat <<-EOF > events.json
+if [[ -z ${TEST_LOG_MESSAGE} ]]; then
+    TEST_LOG_MESSAGE="Hellow Firehose! ${NOW}"
+fi
+
+
+mkdir -p ./tmp
+
+cat <<-EOF > ./tmp/events.json
 [
     {
         "timestamp": $(gdate --date="${NOW}" +%s%3N),
@@ -14,6 +20,14 @@ cat <<-EOF > events.json
 ]
 EOF
 
-cat events.json | jq .
+cat ./tmp/events.json | jq .
 
-aws logs put-log-events --log-group-name /ex-aws-firehose --log-stream-name test --log-events file://events.json
+GROUP_NAME='/ex-aws-firehose'
+STREAM_NAME='test'
+SEQUENCE_TOKEN=$(aws logs describe-log-streams --log-group-name ${GROUP_NAME} --log-stream-name ${STREAM_NAME} --query 'logStreams[].uploadSequenceToken' --output text)
+
+if [[ -z ${SEQUENCE_TOKEN} ]]; then
+    aws logs put-log-events --log-group-name ${GROUP_NAME} --log-stream-name ${STREAM_NAME} --log-events file://tmp/events.json
+else
+    aws logs put-log-events --log-group-name ${GROUP_NAME} --log-stream-name ${STREAM_NAME} --log-events file://tmp/events.json --sequence-token $SEQUENCE_TOKEN
+fi
