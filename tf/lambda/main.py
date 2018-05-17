@@ -64,6 +64,8 @@ def transformLogEvent(log_event):
     str: The transformed log event.
     """
 
+    log_event['message'] = log_event['message'].replace('Hello', 'Hell Yeah')
+
     return log_event['message'] + '\n'
 
 
