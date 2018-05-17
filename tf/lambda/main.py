@@ -69,7 +69,7 @@ def transformLogEvent(log_event):
 
 def processRecords(records):
     for r in records:
-        data = json.loads(gzip.decompress(base64.b64decode(r['data'])))
+        data = json.loads(gzip.decompress(base64.b64decode(r['data'])).decode('utf-8'))
 
         recId = r['recordId']
 
@@ -87,8 +87,8 @@ def processRecords(records):
                 'recordId': recId
             }
         else:
-            data = ''.join([transformLogEvent(e) for e in data['logEvents']])
-            data = base64.b64encode(data)
+            data = b''.join([transformLogEvent(e).encode('utf-8') for e in data['logEvents']])
+            data = base64.b64encode(data).decode('utf-8')
             yield {
                 'data': data,
                 'result': 'Ok',
@@ -155,5 +155,7 @@ def handler(event, context):
         print('Reingested %d records out of %d' % (len(recordsToReingest), len(event['records'])))
     else:
         print('No records to be reingested')
+
+    print(f'records: {records}')
 
     return {"records": records}
