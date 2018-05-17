@@ -5,7 +5,7 @@ set -ex
 NOW=$(gdate +"%Y-%m-%d %k:%M:%S")
 
 if [[ -z ${TEST_LOG_MESSAGE} ]]; then
-    TEST_LOG_MESSAGE="Hellow Firehose! ${NOW}"
+    TEST_LOG_MESSAGE="Hello Firehose! ${NOW}"
 fi
 
 
