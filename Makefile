@@ -22,5 +22,8 @@ build:
 apply:
 	./apply.sh
 
+destroy:
+	./destroy.sh
+
 test:
 	./put_test_log_to_log_stream.sh
