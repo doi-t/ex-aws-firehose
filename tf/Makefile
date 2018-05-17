@@ -7,6 +7,7 @@ all: build apply
 clean:
 	rm -rf build
 	rm -rf tmp
+	rm -rf lambda/.mypy_cache/
 
 # Ref. https://gist.github.com/istepanov/48285351fa206a0aba92615fb9d632c6
 build:
@@ -18,10 +19,8 @@ build:
 	cp -r $$VIRTUAL_ENV/lib/python3.6/site-packages/ build/site-packages
 	cd build/site-packages; zip -g -r ../$(FUNCTION).zip . -x "*__pycache__*"
 
-
 apply:
 	./apply.sh
-
 
 test:
 	./put_test_log_to_log_stream.sh
