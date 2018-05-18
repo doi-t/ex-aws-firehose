@@ -16,11 +16,28 @@ resource "aws_kinesis_firehose_delivery_stream" "ex_aws_firehose" {
     role_arn        = "${aws_iam_role.ex_aws_firehose.arn}"
     bucket_arn      = "${aws_s3_bucket.ex_aws_firehose.arn}"
     buffer_interval = 60
+    kms_key_arn     = "${aws_kms_key.ex_aws_firehose.arn}"
 
     cloudwatch_logging_options {
       enabled         = true
       log_group_name  = "${aws_cloudwatch_log_group.ex_aws_firehose.name}"
       log_stream_name = "${aws_cloudwatch_log_stream.firehose_service_logs.name}"
+    }
+
+    s3_backup_mode = "Enabled"
+
+    s3_backup_configuration = {
+      role_arn        = "${aws_iam_role.ex_aws_firehose.arn}"
+      bucket_arn      = "${aws_s3_bucket.ex_aws_firehose.arn}"
+      prefix          = "backup/"
+      buffer_interval = 60
+      kms_key_arn     = "${aws_kms_key.ex_aws_firehose.arn}"
+
+      cloudwatch_logging_options {
+        enabled         = true
+        log_group_name  = "${aws_cloudwatch_log_group.ex_aws_firehose.name}"
+        log_stream_name = "${aws_cloudwatch_log_stream.firehose_backup_logs.name}"
+      }
     }
 
     processing_configuration = [
@@ -49,6 +66,32 @@ resource "aws_s3_bucket" "ex_aws_firehose" {
   acl    = "private"
 }
 
+# Ref. https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html
+resource "aws_kms_key" "ex_aws_firehose" {
+  description = "Encrypt data that comes from CloudWatch Logs when Kinesis Firehose save trasformed data to the destination."
+
+  # Issue: https://github.com/terraform-providers/terraform-provider-aws/issues/245
+  # policy = "${data.template_file.kms_policy.rendered}"
+
+  tags = {
+    Name = "${var.resource_name}"
+  }
+}
+
+data "template_file" "kms_policy" {
+  template = "${file("${path.module}/kms_policy.json.tpl")}"
+
+  vars {
+    account_id        = "${data.aws_caller_identity.current.account_id}"
+    firehose_role_arn = "${aws_iam_role.ex_aws_firehose.arn}"
+  }
+}
+
+resource "aws_kms_alias" "ex_aws_firehose" {
+  name          = "alias/ex-aws-firehose"
+  target_key_id = "${aws_kms_key.ex_aws_firehose.key_id}"
+}
+
 resource "aws_iam_role" "ex_aws_firehose" {
   name = "${var.resource_name}"
 
@@ -69,8 +112,6 @@ resource "aws_iam_role" "ex_aws_firehose" {
 EOF
 }
 
-# Need PUtLogEvents permissions for logging
-# Need KMS permissions for encryption
 resource "aws_iam_role_policy" "ex_aws_firehose" {
   role = "${aws_iam_role.ex_aws_firehose.name}"
 
@@ -112,6 +153,24 @@ resource "aws_iam_role_policy" "ex_aws_firehose" {
            "Resource": [
                "${aws_cloudwatch_log_stream.firehose_service_logs.arn}"
            ]
+        },
+        {
+           "Effect": "Allow",
+           "Action": [
+               "kms:Decrypt",
+               "kms:GenerateDataKey"
+           ],
+           "Resource": [
+               "${aws_kms_key.ex_aws_firehose.arn}"
+           ],
+           "Condition": {
+               "StringEquals": {
+                   "kms:ViaService": "s3.${data.aws_region.current.name}.amazonaws.com"
+               },
+               "StringLike": {
+                   "kms:EncryptionContext:aws:s3:arn": "arn:aws:s3:::${aws_s3_bucket.ex_aws_firehose.id}/*"
+               }
+           }
         }
     ]
 }
@@ -241,5 +300,10 @@ resource "aws_cloudwatch_log_stream" "ex_aws_firehose" {
 
 resource "aws_cloudwatch_log_stream" "firehose_service_logs" {
   name           = "firehose-service-logs"
+  log_group_name = "${aws_cloudwatch_log_group.ex_aws_firehose.name}"
+}
+
+resource "aws_cloudwatch_log_stream" "firehose_backup_logs" {
+  name           = "firehose-backup-logs"
   log_group_name = "${aws_cloudwatch_log_group.ex_aws_firehose.name}"
 }
