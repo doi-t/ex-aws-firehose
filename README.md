@@ -12,6 +12,8 @@ make TF_BACKEND_TFSTATE_BUCKET=<your existing s3 bucket name> TF_BACKEND_REGION=
 aws firehose describe-delivery-stream --delivery-stream-name ex-aws-firehose
 ```
 
+Edit KMS policy based on `kms_policy.json.tpl`.
+
 ### Send a test log to CloudWatch Logs
 Check the destination before test.
 ```
@@ -28,7 +30,7 @@ aws logs get-log-events --log-group-name /ex-aws-firehose --log-stream-name test
 
 ### Check the result
 ```
-aws s3 ls "ex-aws-firehose-$(aws sts get-caller-identity --query Account --output text)" --recursive # Check after test
+aws s3 ls "ex-aws-firehose-$(aws sts get-caller-identity --query Account --output text)" --recursive
 ```
 
 ### Check the error log
